@@ -102,7 +102,7 @@ functions: function functions
 function: FUNC IDENT 
         {
             funcName = "main";
-            //funcName = $2;
+            //funcName = *$2;
             allFuncs.push_back(funcName);
         }
         SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
@@ -277,6 +277,9 @@ write: WRITE IDENT SCOLON
     currCode = "";
     //printf("write -> write ident\n");
 }
+    | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
+        //array writing
+    }
 
 returns: RET val SCOLON 
 {
@@ -397,6 +400,15 @@ declarations: declaration declarations
             }
 declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON 
 {
+    varName = "z";
+    //varName = $1;
+    currCode += (".[] ") + varName + ", ";
+    varName += "[]";
+    currVar.push_back(varName);
+    //currCode += $5;
+    currCode += "20\n";
+    allLines.push_back(currCode);
+    currCode = "";
     //printf("declaration array\n");
 }
             |IDENT COLON INT SCOLON 
@@ -404,9 +416,7 @@ declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON
                 varName = "a";
                 //varName = $1;
                 currVar.push_back(varName);
-                currCode += (". ");
-                currCode += (varName);
-                currCode += ("\n");
+                currCode += (". ") + varName + "\n";
                 allLines.push_back(currCode);
                 currCode = "";
                 //printf("declaration -> integer\n");
