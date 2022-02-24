@@ -15,6 +15,7 @@ void yyerror(const char* s);
 #include<string>
 #include<vector>
 #include<string.h>
+#include<map>
 
 using namespace std;
 
@@ -25,6 +26,7 @@ vector<string> allLines;
 int checkCommas = 0;
 string backTrack = "";
 string exOperator = "";
+map<string, int> varVals;
 
 string tempVar = "";
 int temp_count = 0;
@@ -64,11 +66,15 @@ void print_symbol_table(void) {
     printf("--------------------\n");
 }
 
+struct CodeNode {
+    std::string code;
+    std::string name;
+};
+
 %}
 
 %union {
-    int notU;
-    char *notUsed;
+    struct CodeNode* code_node;
     int int_val;
     char *op_val;
 }
@@ -81,9 +87,9 @@ void print_symbol_table(void) {
 %token LTE GTE NOTEQ ARR BPARAM EPARAM BLOCAL ELOCAL BBODY EBODY INT OF IF THEN ENDIF ELSE WHILE DO BLOOP ENDLOOP CONT BREAK READ
 %token WRITE NOT T F RET FOR
 %token EQUAL
-%token <op_val> NUM
-%token <op_val> IDENT
-%type <op_val> value
+%token <code_node> NUM
+%token <code_node> IDENT
+%type <code_node> function
 
 
 %%
@@ -99,14 +105,12 @@ functions: function functions
             {
                 //printf("functions -> epsilon\n");
             }
-function: FUNC IDENT 
+function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
         {
+            CodeNode *node = new CodeNode;
             funcName = "main";
-            //funcName = *$2;
+            //funcName = $2 -> name;
             allFuncs.push_back(funcName);
-        }
-        SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
-        {
             allVars.push_back(currVar);
             cout << "function " << funcName << endl;
             for(int i = 0; i < allLines.size(); ++i) {
@@ -114,6 +118,7 @@ function: FUNC IDENT
             }
             cout << "endfunc" << endl;
             cout << endl;
+            //$$ = node;
             //printf("function -> stuff\n");
         }
 
@@ -182,6 +187,13 @@ assignment: IDENT ASSIGN val SCOLON
             }
            | IDENT LEFT_BRACK value RIGHT_BRACK ASSIGN val SCOLON
            {
+                beginCode = ("[]= ");
+                beginCode += ("tempArr");
+                //beginCode += ("%s", $1);
+                beginCode += (", ");
+                currCode = beginCode + currCode + "\n";
+                allLines.push_back(currCode);
+                currCode = "";
                //printf("assignment -> array val val\n");
            }
 
@@ -264,13 +276,19 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
 
 read: READ IDENT SCOLON
 {
+    currCode += (".< ");
+    currCode += ("r");
+    //currCode += ("%s", $2);
+    currCode += ("\n");
+    allLines.push_back(currCode);
+    currCode = "";
     //printf("read -> read Ident\n");
 }
 
 write: WRITE IDENT SCOLON
 {
     currCode += (".> ");
-    currCode += ("c");
+    currCode += ("w");
     //currCode += ("%s", $2);
     currCode += ("\n");
     allLines.push_back(currCode);
@@ -278,7 +296,17 @@ write: WRITE IDENT SCOLON
     //printf("write -> write ident\n");
 }
     | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
-        //array writing
+        beginCode = ("=[] ");
+        tempVar = gen_temp_var();
+        beginCode += ("tempVar, z");
+        //beginCode += ("%s", $2);
+        beginCode += (", ");
+        currCode = beginCode + currCode + "\n";
+        allLines.push_back(currCode);
+        currCode = (".> ") + tempVar + "\n";
+        allLines.push_back(currCode);
+        currCode = "";
+        //printf("assignment -> array val val\n");
     }
 
 returns: RET val SCOLON 
@@ -305,7 +333,7 @@ math: NUM
     }
     | IDENT LEFT_BRACK value RIGHT_BRACK 
     {
-        //array thing
+        //aray things
     }
     | IDENT 
     {
