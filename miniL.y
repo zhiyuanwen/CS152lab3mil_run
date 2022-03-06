@@ -16,6 +16,7 @@ void yyerror(const char* s);
 #include<vector>
 #include<string.h>
 #include<map>
+#include<sstream>
 
 using namespace std;
 
@@ -24,7 +25,6 @@ string currCode = "";
 string beginCode = "";
 vector<string> allLines;
 int checkCommas = 0;
-string backTrack = "";
 string exOperator = "";
 map<string, int> varVals;
 
@@ -40,7 +40,7 @@ std::string gen_temp_var()
 /*  
   do {
     count_names++;
-    temp_var = "temp" + std::to_string(count_names);
+    temp_var = "_temp" + std::to_string(count_names);
   } while (find_variable(temp_var));
 */  
   return temp_var;
@@ -66,17 +66,15 @@ void print_symbol_table(void) {
     printf("--------------------\n");
 }
 
-struct CodeNode {
-    std::string code;
-    std::string name;
-};
-
 %}
 
 %union {
-    struct CodeNode* code_node;
     int int_val;
     char *op_val;
+    struct {
+        char* code;
+        char* name;
+    } code_node;
 }
 
 %define parse.error verbose
@@ -87,9 +85,13 @@ struct CodeNode {
 %token LTE GTE NOTEQ ARR BPARAM EPARAM BLOCAL ELOCAL BBODY EBODY INT OF IF THEN ENDIF ELSE WHILE DO BLOOP ENDLOOP CONT BREAK READ
 %token WRITE NOT T F RET FOR
 %token EQUAL
-%token <code_node> NUM
-%token <code_node> IDENT
+%token <int_val> NUM
+%token <op_val> IDENT
+%type <code_node> value
+%type <code_node> math
+%type <code_node> functions
 %type <code_node> function
+
 
 
 %%
@@ -107,18 +109,15 @@ functions: function functions
             }
 function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
         {
-            CodeNode *node = new CodeNode;
-            funcName = "main";
-            //funcName = $2 -> name;
+            funcName = $2;
             allFuncs.push_back(funcName);
             allVars.push_back(currVar);
-            cout << "function " << funcName << endl;
+            cout << "func " << funcName << endl;
             for(int i = 0; i < allLines.size(); ++i) {
                 cout << allLines[i];
             }
             cout << "endfunc" << endl;
             cout << endl;
-            //$$ = node;
             //printf("function -> stuff\n");
         }
 
@@ -167,8 +166,8 @@ assignment: IDENT ASSIGN val SCOLON
             {
                 if(exOperator != "") {
                     beginCode = ("= ");
-                    beginCode += ("tempAssign");
-                    //beginCode += ("%s", $1);
+                    //beginCode += ("tempAssign");
+                    beginCode += ($1);
                     beginCode += (", ") + (tempVar) + "\n";
                     allLines.push_back(beginCode);
                     currCode = "";
@@ -176,8 +175,8 @@ assignment: IDENT ASSIGN val SCOLON
                 }
                 else {
                     beginCode = ("= ");
-                    beginCode += ("tempAssign");
-                    //beginCode += ("%s", $1);
+                    //beginCode += ("tempAssign");
+                    beginCode += ($1);
                     beginCode += (", ");
                     currCode = beginCode + currCode + "\n";
                     allLines.push_back(currCode);
@@ -199,23 +198,25 @@ assignment: IDENT ASSIGN val SCOLON
 
 value: NUM 
     {
-        currCode += ("69");
-        //currCode += ("%s", $1);
+        //currCode += ("420");
+        $$.code = "";
+        $$.name = strdup(to_string($1).c_str());
+        currCode += ($$.name);
         checkCommas = 0;
         //$$ = $1;
     }
     | IDENT
     {
-        currCode += ("b");
-        //currCode += ("%s", $1);
+        $$.code = "";
+        $$.name = $1;
+        currCode += ($$.name);
         if(checkCommas == 1) {
             checkCommas = 0;
         }
         else {
             checkCommas++;
             currCode += (", ");
-        }
-        //$$ = $1; 
+        } 
     }
 ifThen: IF condition THEN lines EIf ENDIF SCOLON 
 {
@@ -277,8 +278,8 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
 read: READ IDENT SCOLON
 {
     currCode += (".< ");
-    currCode += ("r");
-    //currCode += ("%s", $2);
+    //currCode += ("r");
+    currCode += ($2);
     currCode += ("\n");
     allLines.push_back(currCode);
     currCode = "";
@@ -288,8 +289,8 @@ read: READ IDENT SCOLON
 write: WRITE IDENT SCOLON
 {
     currCode += (".> ");
-    currCode += ("w");
-    //currCode += ("%s", $2);
+    //currCode += ("w");
+    currCode += ($2);
     currCode += ("\n");
     allLines.push_back(currCode);
     currCode = "";
@@ -298,8 +299,8 @@ write: WRITE IDENT SCOLON
     | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
         beginCode = ("=[] ");
         tempVar = gen_temp_var();
-        beginCode += ("tempVar, z");
-        //beginCode += ("%s", $2);
+        //beginCode += ("tempVar, z");
+        beginCode += ($2);
         beginCode += (", ");
         currCode = beginCode + currCode + "\n";
         allLines.push_back(currCode);
@@ -325,20 +326,23 @@ val: func
 
 math: NUM 
     {
-        currCode += ("69");
-        //currCode += ("%s", $1);
+        //currCode += ("2");
+        $$.code = "";
+        $$.name = strdup(to_string($1).c_str());
+        currCode += ($$.name);
         checkCommas = 0;
-        //$$ = $1;
         //printf("math -> num\n");
     }
     | IDENT LEFT_BRACK value RIGHT_BRACK 
     {
-        //aray things
+        //array things
     }
     | IDENT 
     {
-        currCode += ("b");
-        //currCode += ("%s", $1);
+        //currCode += ("b");
+        $$.code = "";
+        $$.name = $1;
+        currCode += ($$.name);
         if(checkCommas == 1) {
             checkCommas = 0;
         }
@@ -346,7 +350,6 @@ math: NUM
             checkCommas++;
             currCode += (", ");
         }
-        //$$ = $1; 
         //printf("math -> Ident\n");
     }
     | val op val 
@@ -376,7 +379,6 @@ func: IDENT LEFT_PAREN val RIGHT_PAREN
 }
     | func op func 
     {
-        //backTrack = $1;
         tempVar = gen_temp_var();
         beginCode = (". ");
         beginCode += tempVar;
@@ -409,7 +411,7 @@ op: PLUS
     }
     |DIV 
     {
-        exOperator = "* ";
+        exOperator = "/ ";
         //printf("op -> div\n");
     }
     |MODULO 
@@ -428,8 +430,8 @@ declarations: declaration declarations
             }
 declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON 
 {
-    varName = "z";
-    //varName = $1;
+    //varName = "z";
+    varName = $1;
     currCode += (".[] ") + varName + ", ";
     varName += "[]";
     currVar.push_back(varName);
@@ -441,8 +443,8 @@ declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON
 }
             |IDENT COLON INT SCOLON 
             {
-                varName = "a";
-                //varName = $1;
+                //varName = "a";
+                varName = $1;
                 currVar.push_back(varName);
                 currCode += (". ") + varName + "\n";
                 allLines.push_back(currCode);
