@@ -302,6 +302,7 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
         allLines.push_back(loopLined[i]);
     }
     excessLines = 0;
+    loopLined.clear();
     allLines.push_back(":= beginloop" + to_string(loop_count) + string("\n"));
     allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
     loop_count++;
