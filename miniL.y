@@ -24,7 +24,6 @@ int count_names = 0;
 string currCode = "";
 string beginCode = "";
 vector<string> allLines;
-int checkCommas = 0;
 string exOperator = "";
 map<string, int> varVals;
 
@@ -34,7 +33,7 @@ std::string gen_temp_var()
 {
   std::string temp_var;
   char tempstr[40] = "";
-  sprintf(tempstr, "temp%d", temp_count++);
+  sprintf(tempstr, "_temp%d", temp_count++);
   temp_var = tempstr;
 
 /*  
@@ -66,15 +65,17 @@ void print_symbol_table(void) {
     printf("--------------------\n");
 }
 
+struct CodeNode {
+    std::string code;
+    std::string name;
+};
+
 %}
 
 %union {
     int int_val;
     char *op_val;
-    struct {
-        char* code;
-        char* name;
-    } code_node;
+    struct CodeNode *code_node;
 }
 
 %define parse.error verbose
@@ -89,8 +90,12 @@ void print_symbol_table(void) {
 %token <op_val> IDENT
 %type <code_node> value
 %type <code_node> math
+%type <code_node> assignment
 %type <code_node> functions
 %type <code_node> function
+%type <code_node> val
+%type <code_node> write
+%type <code_node> read
 
 
 
@@ -109,6 +114,7 @@ functions: function functions
             }
 function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
         {
+            //funcName = "main";
             funcName = $2;
             allFuncs.push_back(funcName);
             allVars.push_back(currVar);
@@ -164,59 +170,38 @@ line: assignment
 
 assignment: IDENT ASSIGN val SCOLON
             {
-                if(exOperator != "") {
-                    beginCode = ("= ");
-                    //beginCode += ("tempAssign");
-                    beginCode += ($1);
-                    beginCode += (", ") + (tempVar) + "\n";
-                    allLines.push_back(beginCode);
-                    currCode = "";
-                    exOperator = "";
-                }
-                else {
-                    beginCode = ("= ");
-                    //beginCode += ("tempAssign");
-                    beginCode += ($1);
-                    beginCode += (", ");
-                    currCode = beginCode + currCode + "\n";
-                    allLines.push_back(currCode);
-                    currCode = "";
-                }
+                CodeNode *node = new CodeNode;
+                node -> code = $3 -> code;
+                node -> code += string("= ") + string($1) + string(", ") + $3 -> name + string("\n");
+                allLines.push_back(node -> code);
+                $$ = node;
                 //printf("assignment -> variable ASSIGN val\n");
             }
            | IDENT LEFT_BRACK value RIGHT_BRACK ASSIGN val SCOLON
-           {
-                beginCode = ("[]= ");
-                beginCode += ("tempArr");
-                //beginCode += ("%s", $1);
-                beginCode += (", ");
-                currCode = beginCode + currCode + "\n";
-                allLines.push_back(currCode);
-                currCode = "";
-               //printf("assignment -> array val val\n");
-           }
+            {
+                //cout << "what does the array get" << endl;
+                CodeNode *node = new CodeNode;
+                node -> code = $6 -> code;
+                node -> code += string("[]= ") + string($1) + string(", ") + string($3 -> name) + string(", ") + $6 -> name + "\n";
+                allLines.push_back(node -> code);
+                $$ = node;
+                //cout << "array value now has something" << endl;
+                //printf("assignment -> array val val\n");
+            }
 
 value: NUM 
     {
-        //currCode += ("420");
-        $$.code = "";
-        $$.name = strdup(to_string($1).c_str());
-        currCode += ($$.name);
-        checkCommas = 0;
-        //$$ = $1;
+        CodeNode *node = new CodeNode;
+        node -> code = "";
+        node -> name = strdup(to_string($1).c_str());
+        $$ = node;
     }
     | IDENT
     {
-        $$.code = "";
-        $$.name = $1;
-        currCode += ($$.name);
-        if(checkCommas == 1) {
-            checkCommas = 0;
-        }
-        else {
-            checkCommas++;
-            currCode += (", ");
-        } 
+        CodeNode *node = new CodeNode;
+        node -> code = "";
+        node -> name = $1;
+        $$ = node;
     }
 ifThen: IF condition THEN lines EIf ENDIF SCOLON 
 {
@@ -277,37 +262,27 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
 
 read: READ IDENT SCOLON
 {
-    currCode += (".< ");
-    //currCode += ("r");
-    currCode += ($2);
-    currCode += ("\n");
+    currCode += string(".< ") + $2 + string("\n");
     allLines.push_back(currCode);
-    currCode = "";
     //printf("read -> read Ident\n");
 }
 
 write: WRITE IDENT SCOLON
 {
-    currCode += (".> ");
-    //currCode += ("w");
-    currCode += ($2);
-    currCode += ("\n");
+    currCode = string(".> ") + $2 + string("\n");
     allLines.push_back(currCode);
-    currCode = "";
     //printf("write -> write ident\n");
 }
     | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
-        beginCode = ("=[] ");
+        //cout << "Beginning array writes" << endl;
         tempVar = gen_temp_var();
-        //beginCode += ("tempVar, z");
-        beginCode += ($2);
-        beginCode += (", ");
-        currCode = beginCode + currCode + "\n";
+        allLines.push_back(". " + tempVar + "\n");
+        currCode = "=[] " + tempVar + ", " + $2 + ", " + ($4 -> name) + "\n";
         allLines.push_back(currCode);
         currCode = (".> ") + tempVar + "\n";
         allLines.push_back(currCode);
-        currCode = "";
         //printf("assignment -> array val val\n");
+        //cout << "Ending array writes" << endl;
     }
 
 returns: RET val SCOLON 
@@ -319,53 +294,47 @@ val: func
 {
     //printf("val -> func\n");
 }
-    |math 
+    | math 
     {
         //printf("val -> math\n");
     }
 
 math: NUM 
     {
-        //currCode += ("2");
-        $$.code = "";
-        $$.name = strdup(to_string($1).c_str());
-        currCode += ($$.name);
-        checkCommas = 0;
+        CodeNode *node = new CodeNode;
+        node -> code = "";
+        node -> name = strdup(to_string($1).c_str());
+        $$ = node;
         //printf("math -> num\n");
     }
     | IDENT LEFT_BRACK value RIGHT_BRACK 
     {
-        //array things
+        //cout << "Beginning array value" << endl;
+        tempVar = gen_temp_var();
+        allLines.push_back(". " + tempVar + "\n");
+        CodeNode *node = new CodeNode;
+        node -> code = string("=[] ") + string(tempVar) + ", " + string($1) + ", " + string($3 -> name) + "\n";
+        node -> name = tempVar;
+        $$ = node;
+        //cout << "Got the array number" << endl;
     }
     | IDENT 
     {
-        //currCode += ("b");
-        $$.code = "";
-        $$.name = $1;
-        currCode += ($$.name);
-        if(checkCommas == 1) {
-            checkCommas = 0;
-        }
-        else {
-            checkCommas++;
-            currCode += (", ");
-        }
+        CodeNode *node = new CodeNode;
+        node -> code = "";
+        node -> name = $1;
+        $$ = node;
         //printf("math -> Ident\n");
     }
     | val op val 
     {
         tempVar = gen_temp_var();
-        beginCode = (". ");
-        beginCode += tempVar;
-        beginCode += ("\n");
-        allLines.push_back(beginCode);
-        beginCode = exOperator;
-        beginCode += tempVar;
-        beginCode += (", ");
-        currCode = beginCode + currCode + "\n";
-        allLines.push_back(currCode);
-        currCode = "";
-        beginCode = "";
+        allLines.push_back(". " + tempVar + "\n");
+        CodeNode *node = new CodeNode;
+        node -> code = ($1 -> code) + ($3 -> code);
+        node -> code += string(exOperator) + tempVar + string(", ") + $1 -> name + string(", ") + $3 -> name + string("\n");
+        node -> name = tempVar;
+        $$ = node;
         //printf("math -> val op val\n");
     }
     |LEFT_PAREN val RIGHT_PAREN
@@ -379,19 +348,20 @@ func: IDENT LEFT_PAREN val RIGHT_PAREN
 }
     | func op func 
     {
+        /*
         tempVar = gen_temp_var();
-        beginCode = (". ");
-        beginCode += tempVar;
-        beginCode += ("\n");
+        beginCode = (". " + tempVar + "\n");
         allLines.push_back(beginCode);
         beginCode = exOperator;
         beginCode += tempVar;
         beginCode += (", ");
         currCode = beginCode + currCode + "\n";
-        allLines.push_back(currCode);
+        allLines.push_back(currCode); 
+        
         currCode = "";
         beginCode = "";
         //printf("func -> func op func\n");
+        */
     }
 
 op: PLUS 
@@ -430,20 +400,20 @@ declarations: declaration declarations
             }
 declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON 
 {
-    //varName = "z";
+    //cout << "Beginning declaration of array" << endl;
     varName = $1;
-    currCode += (".[] ") + varName + ", ";
+    currCode = ".[] " + varName + ", ";
     varName += "[]";
     currVar.push_back(varName);
-    //currCode += $5;
-    currCode += "20\n";
+    currCode += to_string($5);
+    currCode += "\n";
     allLines.push_back(currCode);
+    //cout << "Ending declaration" << endl;
     currCode = "";
     //printf("declaration array\n");
 }
             |IDENT COLON INT SCOLON 
             {
-                //varName = "a";
                 varName = $1;
                 currVar.push_back(varName);
                 currCode += (". ") + varName + "\n";
