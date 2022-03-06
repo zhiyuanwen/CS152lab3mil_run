@@ -96,6 +96,7 @@ struct CodeNode {
 %type <code_node> EIf
 %type <code_node> lines
 %type <code_node> line
+%type <code_node> loop
 
 
 
@@ -213,10 +214,13 @@ ifThen: IF condition THEN lines EIf ENDIF SCOLON
     allLines.push_back(": if_true" + to_string(ifElseCount) + string("\n"));
     CodeNode *node = new CodeNode;
     allLines.push_back($4 -> code);
+    excessLines = 0;
     allLines.push_back(":= endif" + to_string(ifElseCount) + string("\n"));
     allLines.push_back(": else" + to_string(ifElseCount) + string("\n"));
     allLines.push_back($5 -> code);
+    excessLines = 0;
     allLines.push_back(": endif" + to_string(ifElseCount) + string("\n"));
+    ifElseCount++;
     //printf("ifThen -> if statement\n");
 }
 
