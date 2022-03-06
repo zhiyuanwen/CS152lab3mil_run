@@ -98,6 +98,8 @@ struct CodeNode {
 %type <code_node> lines
 %type <code_node> line
 %type <code_node> loop
+%type <code_node> comp
+%type <code_node> op
 
 
 
