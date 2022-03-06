@@ -20,12 +20,14 @@ void yyerror(const char* s);
 
 using namespace std;
 
-int count_names = 0;
 string currCode = "";
-string beginCode = "";
 vector<string> allLines;
 string exOperator = "";
+string compOperator = "";
 map<string, int> varVals;
+int loop_count = 0;
+int ifElseCount = 0;
+int excessLines = 0;
 
 string tempVar = "";
 int temp_count = 0;
@@ -35,13 +37,6 @@ std::string gen_temp_var()
   char tempstr[40] = "";
   sprintf(tempstr, "_temp%d", temp_count++);
   temp_var = tempstr;
-
-/*  
-  do {
-    count_names++;
-    temp_var = "_temp" + std::to_string(count_names);
-  } while (find_variable(temp_var));
-*/  
   return temp_var;
 }
 
@@ -96,6 +91,11 @@ struct CodeNode {
 %type <code_node> val
 %type <code_node> write
 %type <code_node> read
+%type <code_node> condition
+%type <code_node> ifThen
+%type <code_node> EIf
+%type <code_node> lines
+%type <code_node> line
 
 
 
@@ -114,7 +114,6 @@ functions: function functions
             }
 function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCAL BBODY lines EBODY
         {
-            //funcName = "main";
             funcName = $2;
             allFuncs.push_back(funcName);
             allVars.push_back(currVar);
@@ -122,6 +121,7 @@ function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCA
             for(int i = 0; i < allLines.size(); ++i) {
                 cout << allLines[i];
             }
+            allLines.clear();
             cout << "endfunc" << endl;
             cout << endl;
             //printf("function -> stuff\n");
@@ -129,6 +129,7 @@ function: FUNC IDENT SCOLON BPARAM declarations EPARAM BLOCAL declarations ELOCA
 
 lines: line lines 
         {
+            excessLines++;
             //printf("lines -> line lines\n");
         }
       | %empty 
@@ -179,13 +180,11 @@ assignment: IDENT ASSIGN val SCOLON
             }
            | IDENT LEFT_BRACK value RIGHT_BRACK ASSIGN val SCOLON
             {
-                //cout << "what does the array get" << endl;
                 CodeNode *node = new CodeNode;
                 node -> code = $6 -> code;
                 node -> code += string("[]= ") + string($1) + string(", ") + string($3 -> name) + string(", ") + $6 -> name + "\n";
                 allLines.push_back(node -> code);
                 $$ = node;
-                //cout << "array value now has something" << endl;
                 //printf("assignment -> array val val\n");
             }
 
@@ -205,11 +204,28 @@ value: NUM
     }
 ifThen: IF condition THEN lines EIf ENDIF SCOLON 
 {
+    for(int i = 0; i < excessLines; ++i) {
+        allLines.pop_back();
+    }
+    excessLines = 0;
+    allLines.push_back("?:= if_true" + to_string(ifElseCount) + string(", ") + $2 -> name + "\n");
+    allLines.push_back(":= else" + to_string(ifElseCount) + string("\n"));
+    allLines.push_back(": if_true" + to_string(ifElseCount) + string("\n"));
+    CodeNode *node = new CodeNode;
+    allLines.push_back($4 -> code);
+    allLines.push_back(":= endif" + to_string(ifElseCount) + string("\n"));
+    allLines.push_back(": else" + to_string(ifElseCount) + string("\n"));
+    allLines.push_back($5 -> code);
+    allLines.push_back(": endif" + to_string(ifElseCount) + string("\n"));
     //printf("ifThen -> if statement\n");
 }
 
 EIf: ELSE lines 
 {
+    CodeNode *node = new CodeNode;
+    node -> code = $2 -> code;
+    node -> name = "";
+    $$ = node;
     //printf("EIf -> else\n");
 }
     | %empty 
@@ -219,35 +235,50 @@ EIf: ELSE lines
 
 condition: val comp val 
 {
+    tempVar = gen_temp_var();
+    allLines.push_back(". " + tempVar + "\n");
+    CodeNode *node = new CodeNode;
+    node -> code = $1 -> code + $3 -> code;
+    node -> code += string(compOperator) + tempVar + string(", ") + string($1 -> name) + string(", ") + string($3 -> name) + string("\n");
+    allLines.push_back(node -> code);
+    node -> name = tempVar;
+    $$ = node;
     //printf("condition -> val comp val\n");
 }
           | NOT val comp val 
           {
+              //specifics that I'm not attempting here
               //printf("condition -> not val comp val\n");
           }
 
 comp: LTE 
 {
+    compOperator = "<= ";
     //printf("comp -> LTE\n");
 }
-    |GTE 
+    | GTE 
     {
+        compOperator = ">= ";
         //printf("comp -> GTE\n");
     }
-    |GREATER 
+    | GREATER 
     {
+        compOperator = "> ";
         //printf("comp -> greater\n");
     }
-    |LESSER 
+    | LESSER 
     {
+        compOperator = "< ";
         //printf("comp -> lesser\n");
     }
     |NOTEQ 
     {
+        compOperator = "!= ";
         //printf("comp -> noteq\n");
     }
     |EQUAL 
     {
+        compOperator = "== ";
         //printf("comp -> equal\n");
     }
 
@@ -255,6 +286,7 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
 {
     //printf("loop -> while\n");
 }
+
     | DO BLOOP lines ENDLOOP WHILE condition 
     {
         //printf("loop -> do\n");
@@ -274,7 +306,6 @@ write: WRITE IDENT SCOLON
     //printf("write -> write ident\n");
 }
     | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
-        //cout << "Beginning array writes" << endl;
         tempVar = gen_temp_var();
         allLines.push_back(". " + tempVar + "\n");
         currCode = "=[] " + tempVar + ", " + $2 + ", " + ($4 -> name) + "\n";
@@ -282,7 +313,6 @@ write: WRITE IDENT SCOLON
         currCode = (".> ") + tempVar + "\n";
         allLines.push_back(currCode);
         //printf("assignment -> array val val\n");
-        //cout << "Ending array writes" << endl;
     }
 
 returns: RET val SCOLON 
@@ -309,14 +339,12 @@ math: NUM
     }
     | IDENT LEFT_BRACK value RIGHT_BRACK 
     {
-        //cout << "Beginning array value" << endl;
         tempVar = gen_temp_var();
         allLines.push_back(". " + tempVar + "\n");
         CodeNode *node = new CodeNode;
         node -> code = string("=[] ") + string(tempVar) + ", " + string($1) + ", " + string($3 -> name) + "\n";
         node -> name = tempVar;
         $$ = node;
-        //cout << "Got the array number" << endl;
     }
     | IDENT 
     {
@@ -350,16 +378,13 @@ func: IDENT LEFT_PAREN val RIGHT_PAREN
     {
         /*
         tempVar = gen_temp_var();
-        beginCode = (". " + tempVar + "\n");
-        allLines.push_back(beginCode);
-        beginCode = exOperator;
-        beginCode += tempVar;
-        beginCode += (", ");
-        currCode = beginCode + currCode + "\n";
+        allLines.push_back(". " + tempVar + "\n");
+        currCode = exOperator;
+        currCode += tempVar;
+        currCode += (", ");
         allLines.push_back(currCode); 
         
         currCode = "";
-        beginCode = "";
         //printf("func -> func op func\n");
         */
     }
@@ -400,7 +425,6 @@ declarations: declaration declarations
             }
 declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON 
 {
-    //cout << "Beginning declaration of array" << endl;
     varName = $1;
     currCode = ".[] " + varName + ", ";
     varName += "[]";
@@ -408,7 +432,6 @@ declaration:IDENT COLON ARR LEFT_BRACK NUM RIGHT_BRACK OF INT SCOLON
     currCode += to_string($5);
     currCode += "\n";
     allLines.push_back(currCode);
-    //cout << "Ending declaration" << endl;
     currCode = "";
     //printf("declaration array\n");
 }
