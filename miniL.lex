@@ -25,8 +25,8 @@ SID      [a-zA-Z]
 ID       [a-zA-Z][a-zA-Z0-9_]*[a-zA-Z0-9]
 ASGN     :=
 EQUATE   ==
-LT       <[^[=>]]
-GT       >[^=]
+LT       <
+GT       >
 LB       "\["
 RB       "]"
 LP       "\("
