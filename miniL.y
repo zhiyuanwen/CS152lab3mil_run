@@ -22,6 +22,7 @@ using namespace std;
 
 string currCode = "";
 vector<string> allLines;
+vector<string> loopLined;
 string exOperator = "";
 string compOperator = "";
 map<string, int> varVals;
@@ -209,10 +210,10 @@ ifThen: IF condition THEN lines EIf ENDIF SCOLON
         allLines.pop_back();
     }
     excessLines = 0;
+    allLines.push_back($2 -> code);
     allLines.push_back("?:= if_true" + to_string(ifElseCount) + string(", ") + $2 -> name + "\n");
     allLines.push_back(":= else" + to_string(ifElseCount) + string("\n"));
     allLines.push_back(": if_true" + to_string(ifElseCount) + string("\n"));
-    CodeNode *node = new CodeNode;
     allLines.push_back($4 -> code);
     excessLines = 0;
     allLines.push_back(":= endif" + to_string(ifElseCount) + string("\n"));
@@ -244,7 +245,6 @@ condition: val comp val
     CodeNode *node = new CodeNode;
     node -> code = $1 -> code + $3 -> code;
     node -> code += string(compOperator) + tempVar + string(", ") + string($1 -> name) + string(", ") + string($3 -> name) + string("\n");
-    allLines.push_back(node -> code);
     node -> name = tempVar;
     $$ = node;
     //printf("condition -> val comp val\n");
@@ -288,6 +288,23 @@ comp: LTE
 
 loop: WHILE condition BLOOP lines ENDLOOP SCOLON 
 {
+    for(int i = 0; i < excessLines + temp_count - 1; ++i) {
+        loopLined.push_back(allLines.back());
+        allLines.pop_back();
+    }
+    excessLines = 0;
+    allLines.push_back(": beginloop" + to_string(loop_count) + "\n");
+    allLines.push_back($2 -> code);
+    allLines.push_back("?:= loop_body" + to_string(loop_count) + string(", ") + $2 -> name + "\n");
+    allLines.push_back(":= endloop" + to_string(loop_count) + string("\n"));
+    allLines.push_back(": loop_body" + to_string(loop_count) + string("\n"));
+    for(int i = loopLined.size() - 1; i >= 0; --i) {
+        allLines.push_back(loopLined[i]);
+    }
+    excessLines = 0;
+    allLines.push_back(":= beginloop" + to_string(loop_count) + string("\n"));
+    allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
+    loop_count++;
     //printf("loop -> while\n");
 }
 
@@ -305,8 +322,11 @@ read: READ IDENT SCOLON
 
 write: WRITE IDENT SCOLON
 {
-    currCode = string(".> ") + $2 + string("\n");
-    allLines.push_back(currCode);
+    CodeNode *node = new CodeNode;
+    node -> code = string(".> ") + $2 + string("\n");
+    node -> name = "";
+    allLines.push_back(node -> code);
+    $$ = node;
     //printf("write -> write ident\n");
 }
     | WRITE IDENT LEFT_BRACK value RIGHT_BRACK SCOLON {
