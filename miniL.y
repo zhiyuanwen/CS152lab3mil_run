@@ -31,6 +31,7 @@ int loop_count = 0;
 int ifElseCount = 0;
 int excessLines = 0;
 string breakLooper = "";
+string continueLooper = "";
 int deepLooper = 0;
 
 string tempVar = "";
@@ -165,6 +166,11 @@ line: assignment
     }
     | CONT SCOLON
     {
+        CodeNode *node = new CodeNode;
+        node -> code = string(continueLooper);
+        node -> name = "";
+        allLines.push_back(continueLooper);
+        $$ = node;
         //printf("line -> CONT(terminal)\n");
     }
     | BREAK SCOLON
@@ -303,6 +309,7 @@ comp: LTE
 loop: WHILE condition
 {
     breakLooper = ":= endloop" + to_string(loop_count + deepLooper) + "\n";
+    continueLooper = ":= beginloop " + to_string(loop_count + deepLooper + 1) + "\n";
     loopLined.push_back(allLines.back());
     allLines.pop_back();
     excessLines = 0;
@@ -330,6 +337,7 @@ BLOOP lines ENDLOOP SCOLON
     allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
     loop_count++;
     breakLooper = "";
+    continueLooper = "";
     loopLined.clear();
     //printf("loop -> while\n");
 }
@@ -337,6 +345,7 @@ BLOOP lines ENDLOOP SCOLON
     | DO BLOOP lines ENDLOOP WHILE condition 
     {
         breakLooper = ":= endloop" + to_string(loop_count + deepLooper) + "\n";
+        continueLooper = ":= beginloop " + to_string(loop_count + deepLooper + 1) + "\n";
         string conditionDeclare = allLines.back();
         allLines.pop_back();
         excessLines = 0;
@@ -358,6 +367,7 @@ BLOOP lines ENDLOOP SCOLON
         allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
         loop_count++;
         breakLooper = "";
+        continueLooper = "";
         loopLined.clear();
         //printf("loop -> do\n");
     }
