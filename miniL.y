@@ -101,6 +101,7 @@ struct CodeNode {
 %type <code_node> loop
 %type <code_node> comp
 %type <code_node> op
+%type <code_node> returns
 
 
 
@@ -365,6 +366,12 @@ write: WRITE IDENT SCOLON
 
 returns: RET val SCOLON 
 {
+    CodeNode *node = new CodeNode;
+    node -> code = $2 -> code;
+    node -> code += string("ret ") + $2 -> name + string("\n");
+    node -> name = "";
+    allLines.push_back(node -> code);
+    $$ = node;
     //printf("returns -> ret val scolon\n");
 }
 
@@ -424,6 +431,7 @@ func: IDENT LEFT_PAREN val RIGHT_PAREN
 }
     | func op func 
     {
+        //Need to do
         /*
         tempVar = gen_temp_var();
         allLines.push_back(". " + tempVar + "\n");
