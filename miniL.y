@@ -31,6 +31,7 @@ int loop_count = 0;
 int ifElseCount = 0;
 int excessLines = 0;
 string breakLooper = "";
+int deepLooper = 0;
 
 string tempVar = "";
 int temp_count = 0;
@@ -301,16 +302,16 @@ comp: LTE
 
 loop: WHILE condition
 {
-    breakLooper = ":= endloop" + to_string(loop_count) + "\n";
+    breakLooper = ":= endloop" + to_string(loop_count + deepLooper) + "\n";
     loopLined.push_back(allLines.back());
     allLines.pop_back();
     excessLines = 0;
-    allLines.push_back(": beginloop" + to_string(loop_count) + "\n");
+    allLines.push_back(": beginloop" + to_string(loop_count + deepLooper) + "\n");
     allLines.push_back(loopLined[0]);
     allLines.push_back($2 -> code);
-    allLines.push_back("?:= loop_body" + to_string(loop_count) + string(", ") + $2 -> name + "\n");
-    allLines.push_back(":= endloop" + to_string(loop_count) + string("\n"));
-    allLines.push_back(": loop_body" + to_string(loop_count) + string("\n"));
+    allLines.push_back("?:= loop_body" + to_string(loop_count + deepLooper) + string(", ") + $2 -> name + "\n");
+    allLines.push_back(":= endloop" + to_string(loop_count + deepLooper) + string("\n"));
+    allLines.push_back(": loop_body" + to_string(loop_count + deepLooper) + string("\n"));
     loopLined.clear();
 }
 BLOOP lines ENDLOOP SCOLON 
@@ -325,8 +326,8 @@ BLOOP lines ENDLOOP SCOLON
     }
     excessLines = 0;
     loopLined.clear();
-    allLines.push_back(":= beginloop" + to_string(loop_count) + string("\n"));
-    allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
+    allLines.push_back(":= beginloop" + to_string(loop_count + deepLooper) + string("\n"));
+    allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
     loop_count++;
     breakLooper = "";
     loopLined.clear();
@@ -335,11 +336,11 @@ BLOOP lines ENDLOOP SCOLON
 
     | DO BLOOP lines ENDLOOP WHILE condition 
     {
-        breakLooper = ":= endloop" + to_string(loop_count) + "\n";
+        breakLooper = ":= endloop" + to_string(loop_count + deepLooper) + "\n";
         string conditionDeclare = allLines.back();
         allLines.pop_back();
         excessLines = 0;
-        allLines.push_back(": beginloop" + to_string(loop_count) + "\n");
+        allLines.push_back(": beginloop" + to_string(loop_count + deepLooper) + "\n");
         for(int i = 0; i < excessLines + temp_count; ++i) {
             loopLined.push_back(allLines.back());
             allLines.pop_back();
@@ -352,9 +353,9 @@ BLOOP lines ENDLOOP SCOLON
         loopLined.clear();
         allLines.push_back(conditionDeclare);
         allLines.push_back($6 -> code);
-        allLines.push_back("?:= begin_loop" + to_string(loop_count) + string(", ") + $6 -> name + "\n");
-        allLines.push_back(":= endloop" + to_string(loop_count) + string("\n"));
-        allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
+        allLines.push_back("?:= begin_loop" + to_string(loop_count + deepLooper) + string(", ") + $6 -> name + "\n");
+        allLines.push_back(":= endloop" + to_string(loop_count + deepLooper) + string("\n"));
+        allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
         loop_count++;
         breakLooper = "";
         loopLined.clear();
