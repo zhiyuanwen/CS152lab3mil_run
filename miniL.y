@@ -166,6 +166,9 @@ line: assignment
     }
     | CONT SCOLON
     {
+        if(continueLooper == "") {
+            yyerror("Invalid break");
+        }
         CodeNode *node = new CodeNode;
         node -> code = string(continueLooper);
         node -> name = "";
@@ -175,6 +178,9 @@ line: assignment
     }
     | BREAK SCOLON
     {
+        if(breakLooper == "") {
+            yyerror("Invalid break");
+        }
         CodeNode *node = new CodeNode;
         node -> code = string(breakLooper);
         node -> name = "";
