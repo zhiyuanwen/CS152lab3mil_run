@@ -331,7 +331,6 @@ BLOOP lines ENDLOOP SCOLON
     for(int i = loopLined.size() - 1; i >= 0; --i) {
         allLines.push_back(loopLined[i]);
     }
-    excessLines = 0;
     loopLined.clear();
     allLines.push_back(":= beginloop" + to_string(loop_count + deepLooper) + string("\n"));
     allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
@@ -339,6 +338,7 @@ BLOOP lines ENDLOOP SCOLON
     breakLooper = "";
     continueLooper = "";
     loopLined.clear();
+    excessLines = 0;
     //printf("loop -> while\n");
 }
 
