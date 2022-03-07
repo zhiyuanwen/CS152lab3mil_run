@@ -23,12 +23,14 @@ using namespace std;
 string currCode = "";
 vector<string> allLines;
 vector<string> loopLined;
+vector<string> ifElseLined;
 string exOperator = "";
 string compOperator = "";
 map<string, int> varVals;
 int loop_count = 0;
 int ifElseCount = 0;
 int excessLines = 0;
+string breakLooper = "";
 
 string tempVar = "";
 int temp_count = 0;
@@ -94,7 +96,6 @@ struct CodeNode {
 %type <code_node> read
 %type <code_node> condition
 %type <code_node> ifThen
-%type <code_node> EIf
 %type <code_node> lines
 %type <code_node> line
 %type <code_node> loop
@@ -166,6 +167,11 @@ line: assignment
     }
     | BREAK SCOLON
     {
+        CodeNode *node = new CodeNode;
+        node -> code = string(breakLooper);
+        node -> name = "";
+        allLines.push_back(breakLooper);
+        $$ = node;
         //printf("line -> break(terminal)\n");
     }
     | returns 
@@ -206,39 +212,43 @@ value: NUM
         node -> name = $1;
         $$ = node;
     }
-ifThen: IF condition THEN lines EIf ENDIF SCOLON 
+
+ifThen: IF condition THEN lines ELSE lines ENDIF SCOLON 
 {
-    for(int i = 0; i < excessLines; ++i) {
+    for(int i = 0; i < 2; ++i) {
+        ifElseLined.push_back(allLines.back());
         allLines.pop_back();
     }
-    excessLines = 0;
     allLines.push_back($2 -> code);
     allLines.push_back("?:= if_true" + to_string(ifElseCount) + string(", ") + $2 -> name + "\n");
     allLines.push_back(":= else" + to_string(ifElseCount) + string("\n"));
     allLines.push_back(": if_true" + to_string(ifElseCount) + string("\n"));
-    allLines.push_back($4 -> code);
-    excessLines = 0;
+    allLines.push_back(ifElseLined[1]);
     allLines.push_back(":= endif" + to_string(ifElseCount) + string("\n"));
     allLines.push_back(": else" + to_string(ifElseCount) + string("\n"));
-    allLines.push_back($5 -> code);
-    excessLines = 0;
+    allLines.push_back(ifElseLined[0]);
     allLines.push_back(": endif" + to_string(ifElseCount) + string("\n"));
     ifElseCount++;
+    ifElseLined.clear();
+    excessLines += 5;
     //printf("ifThen -> if statement\n");
-}
-
-EIf: ELSE lines 
-{
-    CodeNode *node = new CodeNode;
-    node -> code = $2 -> code;
-    node -> name = "";
-    $$ = node;
     //printf("EIf -> else\n");
 }
-    | %empty 
-    {
-        //printf("EIf -> epsilon\n");
-    }
+| IF condition THEN lines ENDIF SCOLON {
+    ifElseLined.push_back(allLines.back());
+    allLines.pop_back();
+    allLines.push_back($2 -> code);
+    allLines.push_back("?:= if_true" + to_string(ifElseCount) + string(", ") + $2 -> name + "\n");
+    allLines.push_back(":= endif" + to_string(ifElseCount) + string("\n"));
+    allLines.push_back(": if_true" + to_string(ifElseCount) + string("\n"));
+    allLines.push_back(ifElseLined[0]);
+    allLines.push_back(": endif" + to_string(ifElseCount) + string("\n"));
+    ifElseCount++;
+    ifElseLined.clear();
+    excessLines += 3;
+    //printf("ifThen -> if statement\n");
+    //printf("EIf -> epsilon\n");
+}
 
 condition: val comp val 
 {
@@ -288,18 +298,27 @@ comp: LTE
         //printf("comp -> equal\n");
     }
 
-loop: WHILE condition BLOOP lines ENDLOOP SCOLON 
+loop: WHILE condition
 {
-    for(int i = 0; i < excessLines + temp_count - 1; ++i) {
-        loopLined.push_back(allLines.back());
-        allLines.pop_back();
-    }
+    breakLooper = ":= endloop" + to_string(loop_count) + "\n";
+    loopLined.push_back(allLines.back());
+    allLines.pop_back();
     excessLines = 0;
     allLines.push_back(": beginloop" + to_string(loop_count) + "\n");
+    allLines.push_back(loopLined[0]);
     allLines.push_back($2 -> code);
     allLines.push_back("?:= loop_body" + to_string(loop_count) + string(", ") + $2 -> name + "\n");
     allLines.push_back(":= endloop" + to_string(loop_count) + string("\n"));
     allLines.push_back(": loop_body" + to_string(loop_count) + string("\n"));
+    loopLined.clear();
+}
+BLOOP lines ENDLOOP SCOLON 
+{
+    for(int i = 0; i < excessLines + temp_count; ++i) {
+        loopLined.push_back(allLines.back());
+        allLines.pop_back();
+    }
+    excessLines = 0;
     for(int i = loopLined.size() - 1; i >= 0; --i) {
         allLines.push_back(loopLined[i]);
     }
@@ -308,6 +327,8 @@ loop: WHILE condition BLOOP lines ENDLOOP SCOLON
     allLines.push_back(":= beginloop" + to_string(loop_count) + string("\n"));
     allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
     loop_count++;
+    breakLooper = "";
+    loopLined.clear();
     //printf("loop -> while\n");
 }
 
