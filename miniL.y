@@ -335,6 +335,29 @@ BLOOP lines ENDLOOP SCOLON
 
     | DO BLOOP lines ENDLOOP WHILE condition 
     {
+        breakLooper = ":= endloop" + to_string(loop_count) + "\n";
+        string conditionDeclare = allLines.back();
+        allLines.pop_back();
+        excessLines = 0;
+        allLines.push_back(": beginloop" + to_string(loop_count) + "\n");
+        for(int i = 0; i < excessLines + temp_count; ++i) {
+            loopLined.push_back(allLines.back());
+            allLines.pop_back();
+        }
+        excessLines = 0;
+        for(int i = loopLined.size() - 1; i >= 0; --i) {
+            allLines.push_back(loopLined[i]);
+        }
+        excessLines = 0;
+        loopLined.clear();
+        allLines.push_back(conditionDeclare);
+        allLines.push_back($6 -> code);
+        allLines.push_back("?:= begin_loop" + to_string(loop_count) + string(", ") + $6 -> name + "\n");
+        allLines.push_back(":= endloop" + to_string(loop_count) + string("\n"));
+        allLines.push_back(": endloop" + to_string(loop_count) + string("\n"));
+        loop_count++;
+        breakLooper = "";
+        loopLined.clear();
         //printf("loop -> do\n");
     }
 
