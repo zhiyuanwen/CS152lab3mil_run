@@ -354,26 +354,23 @@ BLOOP lines ENDLOOP SCOLON
         continueLooper = ":= beginloop " + to_string(loop_count + deepLooper + 1) + "\n";
         string conditionDeclare = allLines.back();
         allLines.pop_back();
-        excessLines = 0;
-        allLines.push_back(": beginloop" + to_string(loop_count + deepLooper) + "\n");
-        for(int i = 0; i < excessLines + temp_count; ++i) {
+        for(int i = 0; i < excessLines; ++i) {
             loopLined.push_back(allLines.back());
             allLines.pop_back();
         }
-        excessLines = 0;
+        allLines.push_back(": beginloop" + to_string(loop_count + deepLooper) + "\n");
         for(int i = loopLined.size() - 1; i >= 0; --i) {
             allLines.push_back(loopLined[i]);
         }
-        excessLines = 0;
-        loopLined.clear();
         allLines.push_back(conditionDeclare);
         allLines.push_back($6 -> code);
-        allLines.push_back("?:= begin_loop" + to_string(loop_count + deepLooper) + string(", ") + $6 -> name + "\n");
+        allLines.push_back("?:= beginloop" + to_string(loop_count + deepLooper) + string(", ") + $6 -> name + "\n");
         allLines.push_back(":= endloop" + to_string(loop_count + deepLooper) + string("\n"));
         allLines.push_back(": endloop" + to_string(loop_count + deepLooper) + string("\n"));
         loop_count++;
         breakLooper = "";
         continueLooper = "";
+        excessLines = 0;
         loopLined.clear();
         //printf("loop -> do\n");
     }
