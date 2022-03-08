@@ -277,7 +277,31 @@ condition: val comp val
 }
           | NOT val comp val 
           {
-              //specifics that I'm not attempting here
+              if(compOperator == "< ") {
+                  compOperator = ">= ";
+              }
+              else if(compOperator == "> ") {
+                  compOperator = "<= ";
+              }
+              else if(compOperator == "<= ") {
+                  compOperator = "> ";
+              }
+              else if(compOperator == ">= ") {
+                  compOperator = "< ";
+              }
+              else if(compOperator == "== ") {
+                  compOperator = "!= ";
+              }
+              else if(compOperator == "!= ") {
+                  compOperator = "== ";
+              }
+              tempVar = gen_temp_var();
+              allLines.push_back(". " + tempVar + "\n");
+              CodeNode *node = new CodeNode;
+              node -> code = $2 -> code + $4 -> code;
+              node -> code += string(compOperator) + tempVar + string(", ") + string($2 -> name) + string(", ") + string($4 -> name) + string("\n");
+              node -> name = tempVar;
+              $$ = node;
               //printf("condition -> not val comp val\n");
           }
 
